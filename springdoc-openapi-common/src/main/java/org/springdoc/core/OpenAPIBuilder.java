@@ -39,11 +39,13 @@ public class OpenAPIBuilder {
     private final OpenAPI openAPI;
     private final ApplicationContext context;
     private final SecurityParser securityParser;
+    private final Optional<List<OpenAPIBuilderCustomiser>> openApiBuilderCustomisers;
     private final Map<HandlerMethod, String> springdocTags = new HashMap<>();
+    private final Map<String, Object> mappings = new HashMap<>();
     private String serverBaseUrl;
 
     @SuppressWarnings("WeakerAccess")
-    OpenAPIBuilder(Optional<OpenAPI> openAPI, ApplicationContext context, SecurityParser securityParser) {
+    OpenAPIBuilder(Optional<OpenAPI> openAPI, ApplicationContext context, SecurityParser securityParser, Optional<List<OpenAPIBuilderCustomiser>> openApiBuilderCustomisers) {
         if (openAPI.isPresent()) {
             this.openAPI = openAPI.get();
             if (this.openAPI.getComponents() == null)
@@ -57,6 +59,7 @@ public class OpenAPIBuilder {
         }
         this.context = context;
         this.securityParser = securityParser;
+        this.openApiBuilderCustomisers = openApiBuilderCustomisers;
     }
 
     private static String splitCamelCase(String str) {
@@ -97,8 +100,14 @@ public class OpenAPIBuilder {
             Server server = new Server().url(serverBaseUrl).description(DEFAULT_SERVER_DESCRIPTION);
             openAPI.addServersItem(server);
         }
+        // add mappings
+        this.mappings.putAll(context.getBeansWithAnnotation(RestController.class));
+        this.mappings.putAll(context.getBeansWithAnnotation(RequestMapping.class));
+
         // add security schemes
         this.calculateSecuritySchemes(openAPI.getComponents());
+
+        openApiBuilderCustomisers.ifPresent(openApiBuilderCustomisers -> openApiBuilderCustomisers.forEach(openApiCustomiser -> openApiCustomiser.customise(this)));
     }
 
     public Operation buildTags(HandlerMethod handlerMethod, Operation operation, OpenAPI openAPI) {
@@ -285,12 +294,12 @@ public class OpenAPIBuilder {
         handlerMethods.forEach(handlerMethod -> springdocTags.put(handlerMethod, tagName));
     }
 
-    public Map<String, Object> getRestControllersMap() {
-        return context.getBeansWithAnnotation(RestController.class);
+    public Map<String, Object> getMappings() {
+        return this.mappings;
     }
 
-    public Map<String, Object> getRequestMappingMap() {
-        return context.getBeansWithAnnotation(RequestMapping.class);
+    public void addMappings(Map<String, Object> mappings) {
+        this.mappings.putAll(mappings);
     }
 
     public Map<String, Object> getControllerAdviceMap() {

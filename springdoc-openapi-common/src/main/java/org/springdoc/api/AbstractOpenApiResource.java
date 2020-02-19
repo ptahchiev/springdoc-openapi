@@ -76,10 +76,8 @@ public abstract class AbstractOpenApiResource {
         if (!computeDone) {
             Instant start = Instant.now();
             openAPIBuilder.build();
-            Map<String, Object> restControllersMap = openAPIBuilder.getRestControllersMap();
-            Map<String, Object> requestMappingMap = openAPIBuilder.getRequestMappingMap();
-            Map<String, Object> restControllers = Stream.of(restControllersMap, requestMappingMap)
-                    .flatMap(mapEl -> mapEl.entrySet().stream())
+            Map<String, Object> restMappings = openAPIBuilder.getMappings();
+            Map<String, Object> restControllers = restMappings.entrySet().stream()
                     .filter(controller -> (AnnotationUtils.findAnnotation(controller.getValue().getClass(),
                             Hidden.class) == null))
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a1, a2) -> a1));
