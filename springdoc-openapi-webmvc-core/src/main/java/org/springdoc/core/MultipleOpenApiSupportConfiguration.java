@@ -6,6 +6,7 @@ import org.springdoc.api.MultipleOpenApiResource;
 import org.springframework.beans.factory.ObjectFactory;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
@@ -25,6 +26,7 @@ import static org.springdoc.core.Constants.SPRINGDOC_ENABLED;
 public class MultipleOpenApiSupportConfiguration {
 
     @Bean
+    @ConditionalOnMissingBean
     public BeanFactoryPostProcessor beanFactoryPostProcessor() {
         return beanFactory -> {
             for (String beanName : beanFactory.getBeanNamesForType(OpenAPI.class)) {
@@ -37,6 +39,7 @@ public class MultipleOpenApiSupportConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
     public MultipleOpenApiResource multipleOpenApiResource(List<GroupedOpenApi> groupedOpenApis,
                                                            ObjectFactory<OpenAPIBuilder> defaultOpenAPIBuilder, AbstractRequestBuilder requestBuilder,
                                                            AbstractResponseBuilder responseBuilder, OperationBuilder operationParser,
