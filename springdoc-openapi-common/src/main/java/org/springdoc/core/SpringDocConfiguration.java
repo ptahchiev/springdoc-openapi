@@ -1,12 +1,42 @@
+/*
+ *
+ *  * Copyright 2019-2020 the original author or authors.
+ *  *
+ *  * Licensed under the Apache License, Version 2.0 (the "License");
+ *  * you may not use this file except in compliance with the License.
+ *  * You may obtain a copy of the License at
+ *  *
+ *  *      https://www.apache.org/licenses/LICENSE-2.0
+ *  *
+ *  * Unless required by applicable law or agreed to in writing, software
+ *  * distributed under the License is distributed on an "AS IS" BASIS,
+ *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  * See the License for the specific language governing permissions and
+ *  * limitations under the License.
+ *
+ */
+
 package org.springdoc.core;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.core.converter.ModelConverter;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.media.ObjectSchema;
+import org.springdoc.core.converters.AdditionalModelsConverter;
 import org.springdoc.core.converters.ModelConverterRegistrar;
-import org.springdoc.core.converters.ObjectNodeConverter;
 import org.springdoc.core.converters.PropertyCustomizingConverter;
+import org.springdoc.core.converters.ResponseSupportConverter;
 import org.springdoc.core.customizers.PropertyCustomizer;
+
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.boot.autoconfigure.condition.AnyNestedCondition;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.ApplicationContext;
@@ -14,68 +44,115 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.LocalVariableTableParameterNameDiscoverer;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
+import static org.springdoc.core.Constants.SPRINGDOC_CACHE_DISABLED;
 import static org.springdoc.core.Constants.SPRINGDOC_ENABLED;
+import static org.springdoc.core.SpringDocUtils.getConfig;
 
 @Configuration
 @ConditionalOnProperty(name = SPRINGDOC_ENABLED, matchIfMissing = true)
 public class SpringDocConfiguration {
 
-    @Bean
-    LocalVariableTableParameterNameDiscoverer localSpringDocParameterNameDiscoverer() {
-        return new LocalVariableTableParameterNameDiscoverer();
-    }
+	static {
+		getConfig().replaceWithSchema(ObjectNode.class, new ObjectSchema());
+	}
 
-    @Bean
-    ObjectNodeConverter objectNodeConverter() {
-        return new ObjectNodeConverter();
-    }
+	@Bean
+	LocalVariableTableParameterNameDiscoverer localSpringDocParameterNameDiscoverer() {
+		return new LocalVariableTableParameterNameDiscoverer();
+	}
 
-    @Bean
-    PropertyCustomizingConverter propertyCustomizingConverter(Optional<List<PropertyCustomizer>> customizers) {
-        return new PropertyCustomizingConverter(customizers);
-    }
+	@Bean
+	AdditionalModelsConverter pageableSupportConverter() {
+		return new AdditionalModelsConverter();
+	}
 
-    @Bean
-    IgnoredParameterAnnotationsDefault ignoredParameterAnnotationsDefault() {
-        return new IgnoredParameterAnnotationsDefault();
-    }
+	@Bean
+	PropertyCustomizingConverter propertyCustomizingConverter(Optional<List<PropertyCustomizer>> customizers) {
+		return new PropertyCustomizingConverter(customizers);
+	}
 
-    @Bean
-    public OpenAPIBuilder openAPIBuilder(Optional<OpenAPI> openAPI, ApplicationContext context, SecurityParser securityParser) {
-        return new OpenAPIBuilder(openAPI, context, securityParser);
-    }
+	@Bean
+	ResponseSupportConverter responseSupportConverter(){
+		return new ResponseSupportConverter();
+	}
 
-    @Bean
-    public ModelConverterRegistrar modelConverterRegistrar(Optional<List<ModelConverter>> modelConverters) {
-        return new ModelConverterRegistrar(modelConverters.orElse(Collections.emptyList()));
-    }
+	@Bean
+	IgnoredParameterAnnotationsDefault ignoredParameterAnnotationsDefault() {
+		return new IgnoredParameterAnnotationsDefault();
+	}
 
-    @Bean
-    @ConditionalOnWebApplication
-    public OperationBuilder operationBuilder(AbstractParameterBuilder parameterBuilder, RequestBodyBuilder requestBodyBuilder,
-                                             SecurityParser securityParser, OpenAPIBuilder openAPIBuilder, PropertyResolverUtils propertyResolverUtils) {
-        return new OperationBuilder(parameterBuilder, requestBodyBuilder,
-                securityParser, openAPIBuilder, propertyResolverUtils);
-    }
+	@Bean
+	public OpenAPIBuilder openAPIBuilder(Optional<OpenAPI> openAPI, ApplicationContext context, SecurityParser securityParser, Optional<SecurityOAuth2Provider> springSecurityOAuth2Provider,SpringDocConfigProperties springDocConfigProperties) {
+		return new OpenAPIBuilder(openAPI, context, securityParser, springSecurityOAuth2Provider,springDocConfigProperties);
+	}
 
-    @Bean
-    public PropertyResolverUtils propertyResolverUtils(ConfigurableBeanFactory factory) {
-        return new PropertyResolverUtils(factory);
-    }
+	@Bean
+	public ModelConverterRegistrar modelConverterRegistrar(Optional<List<ModelConverter>> modelConverters) {
+		return new ModelConverterRegistrar(modelConverters.orElse(Collections.emptyList()));
+	}
 
-    @Bean
-    @ConditionalOnWebApplication
-    public RequestBodyBuilder requestBodyBuilder(AbstractParameterBuilder parameterBuilder) {
-        return new RequestBodyBuilder(parameterBuilder);
-    }
+	@Bean
+	@ConditionalOnWebApplication
+	public OperationBuilder operationBuilder(GenericParameterBuilder parameterBuilder, RequestBodyBuilder requestBodyBuilder,
+			SecurityParser securityParser, PropertyResolverUtils propertyResolverUtils) {
+		return new OperationBuilder(parameterBuilder, requestBodyBuilder,
+				securityParser, propertyResolverUtils);
+	}
 
-    @Bean
-    public SecurityParser securityParser(PropertyResolverUtils propertyResolverUtils) {
-        return new SecurityParser(propertyResolverUtils);
-    }
+	@Bean
+	public PropertyResolverUtils propertyResolverUtils(ConfigurableBeanFactory factory) {
+		return new PropertyResolverUtils(factory);
+	}
 
+	@Bean
+	@ConditionalOnWebApplication
+	public RequestBodyBuilder requestBodyBuilder(GenericParameterBuilder parameterBuilder) {
+		return new RequestBodyBuilder(parameterBuilder);
+	}
+
+	@Bean
+	public SecurityParser securityParser(PropertyResolverUtils propertyResolverUtils) {
+		return new SecurityParser(propertyResolverUtils);
+	}
+
+	@Bean
+	public GenericReturnTypeParser genericReturnTypeParser() {
+		return new GenericReturnTypeParser();
+	}
+
+	@Bean
+	public GenericParameterBuilder parameterBuilder(LocalVariableTableParameterNameDiscoverer localSpringDocParameterNameDiscoverer, IgnoredParameterAnnotations ignoredParameterAnnotations) {
+		return new GenericParameterBuilder(localSpringDocParameterNameDiscoverer, ignoredParameterAnnotations);
+	}
+
+	static class ConditionOnCacheOrGroupedOpenApi extends AnyNestedCondition {
+
+		ConditionOnCacheOrGroupedOpenApi() {
+			super(ConfigurationPhase.REGISTER_BEAN);
+		}
+
+		@Bean
+		@ConditionalOnBean(GroupedOpenApi.class)
+		public BeanFactoryPostProcessor beanFactoryPostProcessor1() {
+			return getBeanFactoryPostProcessor();
+		}
+
+		@Bean
+		@ConditionalOnProperty(name = SPRINGDOC_CACHE_DISABLED)
+		@ConditionalOnMissingBean(GroupedOpenApi.class)
+		public BeanFactoryPostProcessor beanFactoryPostProcessor2() {
+			return getBeanFactoryPostProcessor();
+		}
+
+		private BeanFactoryPostProcessor getBeanFactoryPostProcessor() {
+			return beanFactory -> {
+				for (String beanName : beanFactory.getBeanNamesForType(OpenAPIBuilder.class)) {
+					beanFactory.getBeanDefinition(beanName).setScope("prototype");
+				}
+				for (String beanName : beanFactory.getBeanNamesForType(OpenAPI.class)) {
+					beanFactory.getBeanDefinition(beanName).setScope("prototype");
+				}
+			};
+		}
+	}
 }
