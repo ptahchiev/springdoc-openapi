@@ -38,8 +38,8 @@ public class MultipleOpenApiSupportConfiguration {
         };
     }
 
-    @Bean
-    @ConditionalOnMissingBean
+    @Bean(name = "multipleMvcOpenApiResource")
+    @ConditionalOnMissingBean(name = "multipleMvcOpenApiResource")
     public MultipleOpenApiResource multipleOpenApiResource(List<GroupedOpenApi> groupedOpenApis,
                                                            ObjectFactory<OpenAPIBuilder> defaultOpenAPIBuilder, AbstractRequestBuilder requestBuilder,
                                                            AbstractResponseBuilder responseBuilder, OperationBuilder operationParser,
